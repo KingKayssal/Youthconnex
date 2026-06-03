@@ -1,0 +1,441 @@
+
+<h2 class="sr-only">YouthConnex GIS platform — interactive map application connecting youth to agriculture cooperatives, construction sites, services, and state-funded labour projects across four sector layers</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.root{font-size:14px;padding:1rem 0 2rem}
+.tabs{display:flex;gap:4px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:1.25rem}
+.tab{padding:7px 14px;font-size:13px;border:none;background:none;color:var(--color-text-secondary);border-bottom:2px solid transparent;margin-bottom:-0.5px;cursor:pointer;transition:color .15s;border-radius:0}
+.tab.on{color:var(--color-text-info);border-bottom-color:var(--color-border-info);font-weight:500}
+.panel{display:none}.panel.on{display:block}
+.map-shell{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:1rem}
+.map-topbar{background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.map-search{flex:1;min-width:180px;height:32px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:0 10px;font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary)}
+.layer-btn{font-size:12px;padding:4px 10px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s}
+.layer-btn.on{border-color:currentColor}
+.layer-btn .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.map-body{display:grid;grid-template-columns:200px 1fr;height:340px}
+.map-sidebar{background:var(--color-background-primary);border-right:0.5px solid var(--color-border-tertiary);overflow-y:auto;padding:10px 0}
+.map-result{padding:9px 12px;cursor:pointer;border-bottom:0.5px solid var(--color-border-tertiary);transition:background .1s}
+.map-result:hover{background:var(--color-background-secondary)}
+.map-result.sel{background:var(--color-background-info)}
+.mr-header{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.mr-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.mr-name{font-size:12.5px;font-weight:500;color:var(--color-text-primary)}
+.mr-meta{font-size:11.5px;color:var(--color-text-secondary)}
+.mr-tag{font-size:11px;padding:1px 6px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.map-canvas{position:relative;overflow:hidden;background:#e8f0e4}
+.map-grid{position:absolute;inset:0;background-image:linear-gradient(var(--color-border-tertiary) 1px,transparent 1px),linear-gradient(90deg,var(--color-border-tertiary) 1px,transparent 1px);background-size:40px 40px;opacity:.4}
+.map-road-h{position:absolute;height:3px;background:rgba(255,255,255,.6);border-radius:2px}
+.map-road-v{position:absolute;width:3px;background:rgba(255,255,255,.6);border-radius:2px}
+.map-zone{position:absolute;border-radius:8px;border:1.5px dashed;opacity:.35}
+.map-pin{position:absolute;transform:translate(-50%,-100%);cursor:pointer;transition:transform .15s;z-index:2}
+.map-pin:hover{transform:translate(-50%,-100%) scale(1.2)}
+.map-pin.sel{transform:translate(-50%,-100%) scale(1.25);z-index:3}
+.pin-body{width:26px;height:30px;border-radius:13px 13px 13px 0;display:flex;align-items:center;justify-content:center;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.18);border:2px solid rgba(255,255,255,.8)}
+.map-popup{position:absolute;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:10px 12px;width:175px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:10;font-size:12.5px}
+.mp-title{font-weight:500;color:var(--color-text-primary);margin-bottom:4px;font-size:13px}
+.mp-row{color:var(--color-text-secondary);margin-bottom:2px;display:flex;align-items:center;gap:4px}
+.mp-badge{font-size:11px;padding:2px 7px;border-radius:99px;margin-top:5px;display:inline-block;font-weight:500}
+.mp-action{margin-top:7px;width:100%;font-size:12px;padding:5px 0;border-radius:var(--border-radius-md);border:none;cursor:pointer;font-weight:500;transition:opacity .15s}
+.mp-action:hover{opacity:.85}
+.legend-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.leg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sect-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;margin-bottom:1rem}
+.sect-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;background:var(--color-background-primary);cursor:pointer;transition:border-color .15s}
+.sect-card:hover{border-color:var(--color-border-secondary)}
+.sect-card.open{border-width:1px}
+.sect-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.sect-icon{width:34px;height:34px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sect-title{font-size:13.5px;font-weight:500;color:var(--color-text-primary)}
+.sect-sub{font-size:12px;color:var(--color-text-secondary);line-height:1.5;margin-bottom:8px}
+.feat-list{border-top:0.5px solid var(--color-border-tertiary);padding-top:10px;display:flex;flex-direction:column;gap:0}
+.feat-row{display:grid;grid-template-columns:18px 1fr;gap:7px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);align-items:start}
+.feat-row:last-child{border-bottom:none}
+.feat-name{font-size:12.5px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.feat-desc{font-size:11.5px;color:var(--color-text-secondary);line-height:1.55}
+.role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:1rem}
+.role-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px;cursor:pointer;border:0.5px solid transparent;transition:border-color .15s}
+.role-card:hover{border-color:var(--color-border-secondary)}
+.role-card.sel{border-color:var(--color-border-info);background:var(--color-background-info)}
+.role-icon{font-size:20px;margin-bottom:6px}
+.role-name{font-size:12.5px;font-weight:500;color:var(--color-text-primary)}
+.role-desc{font-size:11.5px;color:var(--color-text-secondary);margin-top:2px;line-height:1.5}
+.flow-list{display:flex;flex-direction:column;gap:0}
+.flow-item{display:grid;grid-template-columns:28px 1fr;gap:10px;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary);align-items:start}
+.flow-item:last-child{border-bottom:none}
+.flow-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:1px}
+.flow-title{font-size:12.5px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.flow-desc{font-size:11.5px;color:var(--color-text-secondary);line-height:1.55}
+.viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:1rem}
+.viz-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px}
+.viz-title{font-size:12.5px;font-weight:500;color:var(--color-text-primary);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.bar-label{font-size:11.5px;color:var(--color-text-secondary);width:72px;flex-shrink:0}
+.bar-track{flex:1;height:8px;background:var(--color-border-tertiary);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .4s}
+.bar-val{font-size:11.5px;color:var(--color-text-secondary);width:28px;text-align:right;flex-shrink:0}
+.stat-row{display:flex;gap:8px;flex-wrap:wrap}
+.stat-box{flex:1;min-width:80px;background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:8px 10px;border:0.5px solid var(--color-border-tertiary)}
+.stat-val{font-size:18px;font-weight:500;color:var(--color-text-primary)}
+.stat-lbl{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.tag-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.tag{font-size:11px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);background:var(--color-background-secondary)}
+</style>
+
+<div class="root">
+
+<div class="tabs">
+  <button class="tab on" onclick="sw('map')">Map interface</button>
+  <button class="tab" onclick="sw('sectors')">Sector features</button>
+  <button class="tab" onclick="sw('roles')">User journeys</button>
+  <button class="tab" onclick="sw('viz')">Data layers</button>
+</div>
+
+<!-- ── MAP PANEL ─────────────────────────────────────────── -->
+<div id="p-map" class="panel on">
+
+<div class="map-shell">
+  <div class="map-topbar">
+    <input class="map-search" placeholder="Search by location, sector, activity..." readonly/>
+    <button class="layer-btn on" style="color:#2d7a3a" onclick="toggleLayer('agri',this)"><div class="dot" style="background:#2d7a3a"></div>Agriculture</button>
+    <button class="layer-btn on" style="color:#c45c1a" onclick="toggleLayer('const',this)"><div class="dot" style="background:#c45c1a"></div>Construction</button>
+    <button class="layer-btn on" style="color:#7c3aed" onclick="toggleLayer('serv',this)"><div class="dot" style="background:#7c3aed"></div>Services</button>
+    <button class="layer-btn on" style="color:#1a6fa8" onclick="toggleLayer('state',this)"><div class="dot" style="background:#1a6fa8"></div>State projects</button>
+  </div>
+  <div class="map-body">
+    <div class="map-sidebar" id="map-sidebar"></div>
+    <div class="map-canvas" id="map-canvas">
+      <div class="map-grid"></div>
+      <!-- Roads -->
+      <div class="map-road-h" style="top:42%;left:0;right:0;opacity:.7"></div>
+      <div class="map-road-h" style="top:68%;left:0;right:0;opacity:.5"></div>
+      <div class="map-road-v" style="left:35%;top:0;bottom:0;opacity:.7"></div>
+      <div class="map-road-v" style="left:65%;top:0;bottom:0;opacity:.5"></div>
+      <!-- Zones -->
+      <div class="map-zone" style="left:8%;top:10%;width:28%;height:38%;background:#2d7a3a22;border-color:#2d7a3a"></div>
+      <div class="map-zone" style="left:55%;top:55%;width:38%;height:35%;background:#c45c1a22;border-color:#c45c1a"></div>
+      <!-- Pins rendered by JS -->
+      <div id="pins"></div>
+      <div id="popup" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<div class="legend-row">
+  <div class="leg"><div class="leg-dot" style="background:#2d7a3a"></div>Agricultural cooperative / processing unit</div>
+  <div class="leg"><div class="leg-dot" style="background:#c45c1a"></div>Active construction site</div>
+  <div class="leg"><div class="leg-dot" style="background:#7c3aed"></div>Informal sector business</div>
+  <div class="leg"><div class="leg-dot" style="background:#1a6fa8"></div>State labour-intensive project</div>
+</div>
+</div>
+
+<!-- ── SECTORS PANEL ──────────────────────────────────────── -->
+<div id="p-sectors" class="panel">
+<div class="sect-grid" id="sect-grid"></div>
+</div>
+
+<!-- ── ROLES PANEL ───────────────────────────────────────── -->
+<div id="p-roles" class="panel">
+<div class="role-grid" id="role-grid"></div>
+<div id="flow-panel" style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:14px 16px"></div>
+</div>
+
+<!-- ── VIZ PANEL ─────────────────────────────────────────── -->
+<div id="p-viz" class="panel">
+<div class="viz-grid" id="viz-grid"></div>
+</div>
+
+</div>
+
+<script>
+const SECTORS=[
+  {id:'agri',color:'#2d7a3a',bg:'#e8f4eb',label:'Agriculture & cooperatives',
+   sub:'Connects youth to agricultural processing cooperatives, farmland collectives, and agri-business units actively seeking seasonal and permanent workers.',
+   icon:'ti-plant-2',
+   feats:[
+     {icon:'ti-map-pin',name:'Cooperative locator map',desc:'Interactive pins showing every registered agricultural cooperative within the selected radius, categorised by commodity — grain, dairy, horticulture, poultry.'},
+     {icon:'ti-users',name:'Labour demand indicators',desc:'Each pin shows live headcount needs: seasonal harvest workers, processing line operators, equipment drivers, and cooperative managers.'},
+     {icon:'ti-calendar',name:'Seasonal calendar overlay',desc:'A timeline layer highlights planting and harvest windows by crop type and region, helping youth plan availability and application timing.'},
+     {icon:'ti-certificate',name:'Skill-matching engine',desc:'Youth profiles are matched to cooperative requirements — those with relevant TVET certificates or experience are surfaced first to cooperative managers.'},
+     {icon:'ti-building',name:'Processing facility profiles',desc:'Detailed profiles for each facility: commodity handled, daily capacity, number of shifts, transport access, and existing workforce composition.'},
+     {icon:'ti-star',name:'Cooperative rating system',desc:'Youth rate their experience working with a cooperative after a placement, surfacing the most youth-friendly and highest-paying partners.'},
+   ]},
+  {id:'const',color:'#c45c1a',bg:'#fdf0e8',label:'Construction sites',
+   sub:'Maps active construction sites seeking unskilled and semi-skilled youth labourers, linking them to site foremen and contractors across masonry, roofing, earthworks, and finishing.',
+   icon:'ti-crane',
+   feats:[
+     {icon:'ti-map-pin',name:'Active site registry',desc:'All registered active construction sites plotted with start date, projected duration, and distance from the user. Sites within 5 km are highlighted.'},
+     {icon:'ti-tool',name:'Trade-specific vacancies',desc:'Each site lists vacancies by trade category: general labourer, mason, carpenter, painter, electrician apprentice, and scaffolding. Colour-coded by urgency.'},
+     {icon:'ti-id',name:'Direct foreman contact',desc:'Verified foreman profiles with WhatsApp, phone, and site location. Youth tap once to initiate contact or submit a pre-filled interest card.'},
+     {icon:'ti-hard-hat',name:'Safety compliance badges',desc:'Sites are badged by compliance level — sites with active safety inductions, PPE provision, and signed contracts carry a "Safe site" verification badge.'},
+     {icon:'ti-clock',name:'Project timeline tracker',desc:'Gantt-style timeline view showing which sites are entering their most labour-intensive phases (foundation, superstructure, finishing) in the coming weeks.'},
+     {icon:'ti-trending-up',name:'Career pathway prompts',desc:'After a labourer placement, the app suggests relevant TVET courses aligned to their on-site experience to support upskilling into higher-paid trades.'},
+   ]},
+  {id:'serv',color:'#7c3aed',bg:'#f3eeff',label:'Informal sector & services',
+   sub:'Increases the visibility of informal sector businesses — tailors, mechanics, food vendors, repair services — seeking youth partners, apprentices, and supply chain connections.',
+   icon:'ti-shopping-cart',
+   feats:[
+     {icon:'ti-store',name:'Informal business directory',desc:'Self-registered business pins for street traders, market stalls, home-based enterprises, and service providers. Searchable by trade, location, and operating hours.'},
+     {icon:'ti-handshake',name:'Partnership matching',desc:'Informal businesses post partnership needs — a tailor seeking a delivery partner, a food vendor needing a supplier — and youth browse or are matched to these.'},
+     {icon:'ti-certificate',name:'Apprenticeship listings',desc:'Master craftspeople and informal operators post apprenticeship openings specifying the trade, duration, stipend, and accommodation. Youth apply directly.'},
+     {icon:'ti-qrcode',name:'Digital presence boost',desc:'Each registered informal business receives a QR-code business card and a shareable map link to increase their discoverability within the platform.'},
+     {icon:'ti-cash',name:'Supply chain connector',desc:'Cooperatives and construction sites post procurement needs (e.g. fresh produce, aggregates, uniforms) that informal youth suppliers can bid on.'},
+     {icon:'ti-star',name:'Informal economy heatmap',desc:'Density heatmap showing informal activity concentration, helping youth identify under-served localities with unmet demand for specific services.'},
+   ]},
+  {id:'state',color:'#1a6fa8',bg:'#e6f2fc',label:'State labour-intensive projects',
+   sub:'Makes government-funded HIMO (Haute Intensité de Main-d\'Oeuvre) and public works projects discoverable in real time, with direct access to enrollment and sub-contracting processes.',
+   icon:'ti-building-community',
+   feats:[
+     {icon:'ti-file-description',name:'Public works project registry',desc:'All state-funded labour-intensive projects published as map layers: road rehabilitation, irrigation canals, reforestation, school construction, and drainage works.'},
+     {icon:'ti-list-check',name:'Enrollment & registration portal',desc:'Youth register directly within the app for a specific project in their commune. Applications route to the relevant government coordination unit.'},
+     {icon:'ti-map-2',name:'Commune-level filtering',desc:'Projects are filterable by administrative boundary — department, arrondissement, and commune — so youth find projects within their jurisdiction first.'},
+     {icon:'ti-chart-bar',name:'Budget & workforce transparency',desc:'Each project card shows the total workforce budget, number of person-days planned, daily wage rate, and percentage of local youth employed to date.'},
+     {icon:'ti-users',name:'Youth quota tracking',desc:'Displays what percentage of the mandated youth quota on each project has been filled, highlighting projects with the most open slots in the user\'s area.'},
+     {icon:'ti-bell',name:'Project launch alerts',desc:'Youth receive push notifications when a new state project is approved within their commune, with enrollment windows typically lasting 72 hours.'},
+   ]},
+];
+
+const PINS=[
+  {id:1,type:'agri',  color:'#2d7a3a',x:18, y:18, name:'Coopérative Maïs d\'Or',    role:'Grain processing',  jobs:12, dist:'1.4 km'},
+  {id:2,type:'agri',  color:'#2d7a3a',x:28, y:52, name:'Coopérative Lait Frais',    role:'Dairy processing',  jobs:7,  dist:'3.1 km'},
+  {id:3,type:'agri',  color:'#2d7a3a',x:12, y:35, name:'Coopérative Horticulture',  role:'Market gardening',  jobs:20, dist:'2.2 km'},
+  {id:4,type:'const', color:'#c45c1a',x:62, y:60, name:'Chantier Résidentiel K7',   role:'Masonry + roofing', jobs:18, dist:'4.5 km'},
+  {id:5,type:'const', color:'#c45c1a',x:78, y:70, name:'Route Nationale RN4-Est',   role:'Road rehabilitation',jobs:35, dist:'6.0 km'},
+  {id:6,type:'const', color:'#c45c1a',x:55, y:75, name:'Complexe Scolaire Neuf',    role:'Civil works',       jobs:14, dist:'3.8 km'},
+  {id:7,type:'serv',  color:'#7c3aed',x:45, y:35, name:'Atelier Couture Aminata',   role:'Tailoring workshop',jobs:3,  dist:'0.9 km'},
+  {id:8,type:'serv',  color:'#7c3aed',x:55, y:45, name:'Marché Artisanal Central',  role:'Craft & trade',     jobs:8,  dist:'1.7 km'},
+  {id:9,type:'serv',  color:'#7c3aed',x:38, y:60, name:'Réparation Électronique',   role:'Tech repair',       jobs:2,  dist:'2.5 km'},
+  {id:10,type:'state',color:'#1a6fa8',x:70, y:28, name:'HIMO Canal Irrigation Z3',  role:'Earthworks',        jobs:60, dist:'5.2 km'},
+  {id:11,type:'state',color:'#1a6fa8',x:30, y:80, name:'Reboisement Commune Sud',   role:'Reforestation',     jobs:45, dist:'4.0 km'},
+];
+
+const ROLES=[
+  {id:'youth',   name:'Youth job-seeker', icon:'ti-user',      bg:'var(--color-background-info)',   color:'var(--color-text-info)',
+   steps:[
+    {n:1,title:'Create profile',desc:'Register with phone or email. Add skills, education level, preferred trade, and home commune. Upload TVET certificate if available.'},
+    {n:2,title:'Discover nearby',desc:'App shows the map centered on the user\'s commune. All active pins within 10 km load automatically across all four sector layers.'},
+    {n:3,title:'Filter and explore',desc:'Toggle sector layers, adjust radius, filter by job type, and sort by proximity or available slots. Each pin opens a full opportunity card.'},
+    {n:4,title:'Express interest',desc:'Tap "I\'m interested" to send a pre-filled contact card to the foreman, cooperative manager, or government enrollment desk.'},
+    {n:5,title:'Track status',desc:'An application board tracks every submission by status: Sent → Viewed → Contacted → Placed. Push alerts fire on each state change.'},
+   ]},
+  {id:'coop',    name:'Cooperative manager', icon:'ti-plant-2',    bg:'#e8f4eb',   color:'#2d7a3a',
+   steps:[
+    {n:1,title:'Register cooperative',desc:'Submit cooperative registration number, commodity, processing location, and GPS coordinates. A verification officer reviews within 48 hours.'},
+    {n:2,title:'Post labour needs',desc:'Create a vacancy card specifying number of workers needed, trade or task type, duration, daily rate, and on-site accommodation availability.'},
+    {n:3,title:'Review applicants',desc:'Incoming interest cards include the youth\'s profile — skills, location, and experience. One-tap to call or message the candidate.'},
+    {n:4,title:'Confirm placement',desc:'Mark placements as confirmed. The platform records the employment outcome, contributing to the cooperative\'s verified placement history.'},
+   ]},
+  {id:'site',    name:'Construction contractor', icon:'ti-crane',      bg:'#fdf0e8', color:'#c45c1a',
+   steps:[
+    {n:1,title:'Register active site',desc:'Submit site address (with GPS pin drag), project type, client, start and end date, and the types of labour needed per phase.'},
+    {n:2,title:'Post phase vacancies',desc:'As the project progresses, update open positions phase by phase. The timeline view tells youth exactly when each trade will be needed.'},
+    {n:3,title:'Browse matched profiles',desc:'The system surfaces youth within 5 km whose skills and certifications match the listed vacancy — contractors can proactively invite candidates.'},
+    {n:4,title:'Issue safety induction',desc:'Upload the site safety briefing document. Youth who accept a placement receive it directly in-app before their first day.'},
+   ]},
+  {id:'state',   name:'Government project officer', icon:'ti-building',    bg:'#e6f2fc',  color:'#1a6fa8',
+   steps:[
+    {n:1,title:'Publish project',desc:'Ministry or commune uploads the project description, location polygon, workforce budget, youth quota target, and enrollment window dates.'},
+    {n:2,title:'Monitor enrollment',desc:'Real-time dashboard shows enrollment rate by commune, demographic breakdown of applicants, and unfilled slots per project.'},
+    {n:3,title:'Validate local candidates',desc:'Officers verify that enrolled youth meet the commune residency requirement before confirming their placement.'},
+    {n:4,title:'Report impact',desc:'At project close, export a workforce report: total youth employed, person-days delivered, average daily wage, and gender split.'},
+   ]},
+  {id:'informal',name:'Informal business owner', icon:'ti-store',   bg:'#f3eeff', color:'#7c3aed',
+   steps:[
+    {n:1,title:'Self-register',desc:'Complete a simple registration: business name, trade type, location pin on the map, operating hours, and contact number. No formal documents required.'},
+    {n:2,title:'Post a partnership need',desc:'Describe what you\'re looking for — a delivery youth, a supplier, an apprentice. The post appears as a pin on the services layer.'},
+    {n:3,title:'Receive and respond',desc:'Youth contact you directly via the app. Review their profile card and reply by phone, WhatsApp, or in-app message.'},
+    {n:4,title:'Grow visibility',desc:'Each verified interaction (completed delivery, confirmed apprenticeship) adds a credibility point to your business profile, boosting your map ranking.'},
+   ]},
+];
+
+const VIZ=[
+  {title:'Active labour demand by sector',icon:'ti-chart-bar',bars:[
+    {label:'Agriculture', val:68, color:'#2d7a3a'},
+    {label:'Construction',val:84, color:'#c45c1a'},
+    {label:'Services',    val:43, color:'#7c3aed'},
+    {label:'State HIMO',  val:91, color:'#1a6fa8'},
+  ]},
+  {title:'Registered youth by commune',icon:'ti-users',bars:[
+    {label:'Commune A',val:312,color:'#2d7a3a'},
+    {label:'Commune B',val:478,color:'#c45c1a'},
+    {label:'Commune C',val:194,color:'#7c3aed'},
+    {label:'Commune D',val:267,color:'#1a6fa8'},
+  ]},
+  {title:'Platform activity today',icon:'ti-activity',stats:[
+    {val:'2,341',lbl:'Active youth'},
+    {val:'187',  lbl:'Open jobs'},
+    {val:'64',   lbl:'Placements'},
+    {val:'12',   lbl:'New projects'},
+  ]},
+  {title:'Opportunity deserts (high youth / low jobs)',icon:'ti-alert-triangle',bars:[
+    {label:'Zone Nord',  val:15, color:'#e24b4a',max:100},
+    {label:'Zone Est',   val:22, color:'#ef9f27',max:100},
+    {label:'Zone Ouest', val:38, color:'#639922',max:100},
+    {label:'Zone Sud',   val:55, color:'#2d7a3a',max:100},
+  ]},
+];
+
+let layers={agri:true,const:true,serv:true,state:true};
+let selPin=null;
+let openSect=null;
+let selRole='youth';
+
+function sw(id){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const ids=['map','sectors','roles','viz'];
+    t.classList.toggle('on',ids[i]===id);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('p-'+id).classList.add('on');
+  if(id==='sectors') renderSectors();
+  if(id==='roles')  renderRoles();
+  if(id==='viz')    renderViz();
+}
+
+function toggleLayer(type,btn){
+  layers[type]=!layers[type];
+  btn.classList.toggle('on',layers[type]);
+  renderPins();
+}
+
+function renderPins(){
+  const canvas=document.getElementById('map-canvas');
+  const old=document.getElementById('pins');
+  const newDiv=document.createElement('div');
+  newDiv.id='pins';
+  const visiblePins=PINS.filter(p=>layers[p.type]);
+  visiblePins.forEach(p=>{
+    const el=document.createElement('div');
+    el.className='map-pin'+(selPin===p.id?' sel':'');
+    el.style.left=p.x+'%';
+    el.style.top=p.y+'%';
+    el.innerHTML=`<div class="pin-body" style="background:${p.color}">
+      <i class="ti ${p.type==='agri'?'ti-plant-2':p.type==='const'?'ti-crane':p.type==='serv'?'ti-store':'ti-building'}" aria-hidden="true" style="color:#fff;font-size:13px"></i>
+    </div>`;
+    el.onclick=(e)=>{e.stopPropagation();selectPin(p);};
+    newDiv.appendChild(el);
+  });
+  old.replaceWith(newDiv);
+  renderSidebar(visiblePins);
+}
+
+function selectPin(p){
+  selPin=selPin===p.id?null:p.id;
+  renderPins();
+  const popup=document.getElementById('popup');
+  if(selPin===null){popup.style.display='none';return;}
+  const badgeColors={agri:'#2d7a3a',const:'#c45c1a',serv:'#7c3aed',state:'#1a6fa8'};
+  const badgeBgs={agri:'#e8f4eb',const:'#fdf0e8',serv:'#f3eeff',state:'#e6f2fc'};
+  const labels={agri:'Agriculture',const:'Construction',serv:'Services',state:'État HIMO'};
+  popup.style.display='block';
+  popup.style.left=Math.min(p.x,72)+'%';
+  popup.style.top=(p.y>55?p.y-42:p.y+8)+'%';
+  popup.innerHTML=`
+    <div class="mp-title">${p.name}</div>
+    <div class="mp-row"><i class="ti ti-briefcase" aria-hidden="true" style="font-size:13px"></i>${p.role}</div>
+    <div class="mp-row"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:13px"></i>${p.dist}</div>
+    <div class="mp-row"><i class="ti ti-users" aria-hidden="true" style="font-size:13px"></i>${p.jobs} openings</div>
+    <span class="mp-badge" style="background:${badgeBgs[p.type]};color:${badgeColors[p.type]}">${labels[p.type]}</span>
+    <button class="mp-action" style="background:${badgeColors[p.type]};color:#fff" onclick="sendPrompt('Show me how to apply to ${p.name} on the YouthConnex GIS platform')">Express interest ↗</button>`;
+  document.querySelectorAll('.map-result').forEach(el=>{
+    el.classList.toggle('sel',el.dataset.id==p.id);
+  });
+}
+
+function renderSidebar(pins){
+  const sb=document.getElementById('map-sidebar');
+  if(!pins.length){sb.innerHTML='<div style="padding:14px;font-size:12px;color:var(--color-text-secondary)">No results in this view</div>';return;}
+  sb.innerHTML=pins.map(p=>`
+    <div class="map-result${selPin===p.id?' sel':''}" data-id="${p.id}" onclick="selectPin(${JSON.stringify(p).replace(/"/g,'&quot;')})">
+      <div class="mr-header">
+        <div class="mr-dot" style="background:${p.color}"></div>
+        <div class="mr-name">${p.name}</div>
+      </div>
+      <div class="mr-meta">${p.role} · ${p.dist}</div>
+      <div class="mr-meta" style="color:${p.color}">${p.jobs} openings</div>
+    </div>`).join('');
+}
+
+function renderSectors(){
+  const grid=document.getElementById('sect-grid');
+  grid.innerHTML=SECTORS.map(s=>`
+    <div class="sect-card${openSect===s.id?' open':''}" id="sc-${s.id}" onclick="toggleSect('${s.id}')">
+      <div class="sect-top">
+        <div class="sect-icon" style="background:${s.bg}"><i class="ti ${s.icon}" aria-hidden="true" style="color:${s.color}"></i></div>
+        <div>
+          <div class="sect-title" style="color:${s.color}">${s.label}</div>
+          <span style="font-size:11px;color:var(--color-text-secondary)">${s.feats.length} features</span>
+        </div>
+        <i class="ti ti-chevron-down" aria-hidden="true" style="margin-left:auto;font-size:14px;color:var(--color-text-secondary);transition:transform .2s;${openSect===s.id?'transform:rotate(180deg)':''}"></i>
+      </div>
+      <div class="sect-sub">${s.sub}</div>
+      ${openSect===s.id?`<div class="feat-list">${s.feats.map(f=>`
+        <div class="feat-row">
+          <i class="ti ${f.icon}" aria-hidden="true" style="color:var(--color-text-secondary);font-size:14px;padding-top:1px"></i>
+          <div><div class="feat-name">${f.name}</div><div class="feat-desc">${f.desc}</div></div>
+        </div>`).join('')}</div>`:''}
+    </div>`).join('');
+}
+
+function toggleSect(id){
+  openSect=openSect===id?null:id;
+  renderSectors();
+}
+
+function renderRoles(){
+  const rg=document.getElementById('role-grid');
+  rg.innerHTML=ROLES.map(r=>`
+    <div class="role-card${selRole===r.id?' sel':''}" onclick="selectRole('${r.id}')">
+      <div class="role-icon"><i class="ti ${r.icon}" aria-hidden="true" style="font-size:18px;color:${r.color}"></i></div>
+      <div class="role-name">${r.name}</div>
+    </div>`).join('');
+  const role=ROLES.find(r=>r.id===selRole);
+  const fp=document.getElementById('flow-panel');
+  fp.innerHTML=`
+    <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <i class="ti ${role.icon}" aria-hidden="true" style="font-size:16px;color:${role.color}"></i>
+      ${role.name} — user journey
+    </div>
+    <div class="flow-list">${role.steps.map(s=>`
+      <div class="flow-item">
+        <div class="flow-num" style="background:${role.bg};color:${role.color}">${s.n}</div>
+        <div>
+          <div class="flow-title">${s.title}</div>
+          <div class="flow-desc">${s.desc}</div>
+        </div>
+      </div>`).join('')}
+    </div>
+    <button style="margin-top:10px;font-size:12px;padding:5px 12px;cursor:pointer;border-radius:var(--border-radius-md);background:none;border:0.5px solid var(--color-border-secondary);color:var(--color-text-info)" onclick="sendPrompt('Design the complete screen flow for a ${role.name} using the YouthConnex GIS platform step by step')">Design this flow in detail ↗</button>`;
+}
+
+function selectRole(id){
+  selRole=id;
+  renderRoles();
+}
+
+function renderViz(){
+  const vg=document.getElementById('viz-grid');
+  vg.innerHTML=VIZ.map(v=>`
+    <div class="viz-card">
+      <div class="viz-title"><i class="ti ${v.icon}" aria-hidden="true" style="font-size:15px;color:var(--color-text-secondary)"></i>${v.title}</div>
+      ${v.bars?v.bars.map(b=>{
+        const max=b.max||Math.max(...v.bars.map(x=>x.val));
+        const pct=Math.round(b.val/max*100);
+        return `<div class="bar-row">
+          <div class="bar-label">${b.label}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${b.color}"></div></div>
+          <div class="bar-val">${b.val}${b.max?'%':''}</div>
+        </div>`;}).join(''):''}
+      ${v.stats?`<div class="stat-row">${v.stats.map(s=>`<div class="stat-box"><div class="stat-val">${s.val}</div><div class="stat-lbl">${s.lbl}</div></div>`).join('')}</div>`:''}
+    </div>`).join('');
+}
+
+document.getElementById('map-canvas').addEventListener('click',()=>{
+  selPin=null;
+  document.getElementById('popup').style.display='none';
+  renderPins();
+});
+
+renderPins();
+</script>
